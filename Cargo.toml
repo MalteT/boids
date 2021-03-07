@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "boids-server",
+    "frontend",
+]
+
+[profile.release]
+lto = true
