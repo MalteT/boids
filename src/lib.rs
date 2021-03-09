@@ -261,7 +261,7 @@ impl Model {
                         <input type="range"
                                id="max-steer"
                                name="max-steer"
-                               min="0" max="4" step="0.1"
+                               min="0" max="50" step="0.1"
                                value={self.boids.max_steer}
                                onchange={change!(ChangeMaxSteer)}
                         />

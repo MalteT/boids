@@ -6,7 +6,7 @@ use std::f64;
 
 pub const DEFAULT_NR_OF_BOIDS: usize = 100;
 pub const DEFAULT_MAX_SPEED: f64 = 300.0;
-pub const DEFAULT_MAX_STEER: f64 = 1.0;
+pub const DEFAULT_MAX_STEER: f64 = 30.0;
 pub const DEFAULT_ALIGN_RADIUS: f64 = 50.0;
 pub const DEFAULT_COHESION_RADIUS: f64 = 70.0;
 pub const DEFAULT_SEPERATION_RADIUS: f64 = 15.0;
@@ -15,6 +15,7 @@ pub const DEFAULT_ALIGN_FACTOR: f64 = 1.0 / 8.0;
 pub const DEFAULT_CENTER_FACTOR: f64 = 1.0 / 50.0;
 pub const DEFAULT_SEPERATION_FACTOR: f64 = 1.0;
 pub const DEFAULT_ANGST_FACTOR: f64 = 2000.0;
+pub const RETURN_STEER_VAL: f64 = 5.0;
 
 pub struct Boids {
     pub boids: Vec<Boid>,
@@ -98,6 +99,7 @@ impl Boid {
         let cohesion_steer = get_cohesion_steer(&relevant, curr_idx, boids);
         let seperation_steer = get_seperation_steer(&relevant, curr_idx, boids);
         let angst_steer = get_angst_steer(curr_idx, boids);
+        let return_steer = get_return_steer(curr_idx, boids);
         // Accumulate steer
         let mut steer: Vector2<f64> = na::zero();
         steer += boids.align_factor * align_steer;
@@ -105,7 +107,11 @@ impl Boid {
         steer += boids.seperation_factor * seperation_steer;
         steer += boids.angst_factor * angst_steer;
         // Limit the steer (acceleration)
-        steer.cap_magnitude(boids.max_steer);
+        steer = steer.cap_magnitude(boids.max_steer);
+        // Add return steer to force them back into the center
+        steer += return_steer;
+        // Limit the steer (acceleration)
+        steer = steer.cap_magnitude(boids.max_steer);
         // Apply steer and limit the velocity
         let vel = &mut boids.boids[curr_idx].vel;
         *vel += steer;
@@ -113,18 +119,6 @@ impl Boid {
         // Apply velocity
         let this = &mut boids.boids[curr_idx];
         this.pos += this.vel * secs;
-        // Wrap
-        let size = boids.size;
-        if this.pos.x < 0.0 {
-            this.pos.x += size.0
-        } else if this.pos.x > size.0 {
-            this.pos.x -= size.0
-        }
-        if this.pos.y < 0.0 {
-            this.pos.y += size.1
-        } else if this.pos.y > size.1 {
-            this.pos.y -= size.1
-        }
     }
 }
 
@@ -154,6 +148,24 @@ fn get_weighted_others<'a>(
                 None
             }
         })
+}
+
+fn get_return_steer(curr_idx: usize, boids: &Boids) -> Vector2<f64> {
+    let size = boids.size;
+    let curr = &boids.boids[curr_idx];
+    let mut steer: Vector2<_> = na::zero();
+    let wall = 100.0;
+    if curr.pos.x < 0.0 + wall {
+        steer.x += RETURN_STEER_VAL;
+    } else if curr.pos.x > size.0 - wall {
+        steer.x -= RETURN_STEER_VAL;
+    }
+    if curr.pos.y < 0.0 + wall {
+        steer.y += RETURN_STEER_VAL;
+    } else if curr.pos.y > size.1 - wall {
+        steer.y -= RETURN_STEER_VAL;
+    }
+    steer
 }
 
 fn get_angst_steer(curr_idx: usize, boids: &Boids) -> Vector2<f64> {
