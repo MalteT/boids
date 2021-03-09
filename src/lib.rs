@@ -11,9 +11,12 @@ use yew::{
 
 use std::{f64, time::Duration};
 
+mod boid;
 mod boids;
+mod debug;
 
-use boids::{Boid, Boids};
+use boid::Boid;
+use boids::Boids;
 
 const CANVAS_ID: &str = "canvas";
 const BOID_RADIUS: f64 = 5.0;
@@ -23,16 +26,17 @@ const QR_CODE_LOCATION: &str = "qrcode.png";
 const BOID_COLOR: &str = "white";
 const BG_COLOR: &str = "black";
 
-struct Model {
+pub struct Model {
     boids: Boids,
     last_update: f64,
+    last_time_passed: f64,
     link: ComponentLink<Self>,
     settings_panel_shown: bool,
     display_as_qr: bool,
     _task: Box<IntervalTask>,
 }
 
-enum Msg {
+pub enum Msg {
     Tick,
     TogglePanel,
     ToggleDebugMode,
@@ -65,6 +69,7 @@ impl Component for Model {
         Self {
             boids: Boids::new(width, height),
             last_update: performance().now(),
+            last_time_passed: 0.0,
             link,
             settings_panel_shown,
             display_as_qr,
@@ -76,11 +81,11 @@ impl Component for Model {
         match msg {
             Msg::Tick => {
                 let now = performance().now();
-                let time_passed = now - self.last_update;
+                self.last_time_passed = now - self.last_update;
                 self.last_update = now;
 
                 self.boids.size = get_window_size();
-                update(&mut self.boids, time_passed);
+                update(&mut self.boids, self.last_time_passed);
             }
             Msg::MouseMoved(me) => {
                 self.boids.predator.x = me.client_x() as f64;
@@ -173,7 +178,7 @@ impl Model {
                         <input type="range"
                                id="nr-of-boids"
                                name="nr-of-boids"
-                               min="0" max="400"
+                               min="0" max="4000"
                                value={self.boids.boids.len()}
                                onchange={change!(ChangeNrOfBoids)}
                         />
@@ -347,7 +352,7 @@ impl Model {
         context.fill();
 
         if boids.debug_mode {
-            render_debug_info(&context, boids);
+            debug::render_debug_info(&context, self);
         }
     }
 }
@@ -394,64 +399,4 @@ pub fn get_qrcode() -> HtmlImageElement {
         .unwrap()
         .dyn_into()
         .unwrap()
-}
-
-pub fn render_debug_info(context: &CanvasRenderingContext2d, boids: &Boids) {
-    if let Some(first) = &boids.boids.first() {
-        let (xx, yy) = (first.pos.x, first.pos.y);
-        // Draw align radius
-        context.begin_path();
-        context.set_stroke_style(&JsValue::from_str("red"));
-        let align_radius = boids.align_radius_squared.sqrt();
-        context.move_to(xx + align_radius, yy);
-        context
-            .arc(xx, yy, align_radius, 0.0, 2.0 * f64::consts::PI)
-            .expect("Failed to draw boid align radius");
-        context.stroke();
-        // Draw cohesion radius
-        context.begin_path();
-        context.set_stroke_style(&JsValue::from_str("green"));
-        let cohesion_radius = boids.cohesion_radius_squared.sqrt();
-        context.move_to(xx + cohesion_radius, yy);
-        context
-            .arc(xx, yy, cohesion_radius, 0.0, 2.0 * f64::consts::PI)
-            .expect("Failed to draw boid cohesion radius");
-        context.stroke();
-        // Draw seperation radius
-        context.begin_path();
-        context.set_stroke_style(&JsValue::from_str("blue"));
-        let seperation_radius = boids.seperation_radius_squared.sqrt();
-        context.move_to(xx + seperation_radius, yy);
-        context
-            .arc(xx, yy, seperation_radius, 0.0, 2.0 * f64::consts::PI)
-            .expect("Failed to draw boid seperation radius");
-        context.stroke();
-        // Draw the predator
-        context.begin_path();
-        context.set_fill_style(&JsValue::from_str("black"));
-        context
-            .arc(
-                boids.predator.x,
-                boids.predator.y,
-                8.0,
-                0.0,
-                2.0 * f64::consts::PI,
-            )
-            .expect("Failed to draw boid seperation radius");
-        context.fill();
-        // Draw the predator radius
-        context.begin_path();
-        context.set_stroke_style(&JsValue::from_str("red"));
-        let angst_radius = boids.angst_radius_squared.sqrt();
-        context
-            .arc(
-                boids.predator.x,
-                boids.predator.y,
-                angst_radius,
-                0.0,
-                2.0 * f64::consts::PI,
-            )
-            .expect("Failed to draw boid seperation radius");
-        context.stroke();
-    }
 }

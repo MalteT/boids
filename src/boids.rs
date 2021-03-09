@@ -1,10 +1,11 @@
 use na::{Point2, Vector2};
 use nalgebra as na;
-use rand::{prelude::*, thread_rng};
 
 use std::f64;
 
-pub const DEFAULT_NR_OF_BOIDS: usize = 100;
+use crate::boid::Boid;
+
+pub const DEFAULT_NR_OF_BOIDS: usize = 1;
 pub const DEFAULT_MAX_SPEED: f64 = 300.0;
 pub const DEFAULT_MAX_STEER: f64 = 30.0;
 pub const DEFAULT_ALIGN_RADIUS: f64 = 50.0;
@@ -12,10 +13,12 @@ pub const DEFAULT_COHESION_RADIUS: f64 = 70.0;
 pub const DEFAULT_SEPERATION_RADIUS: f64 = 15.0;
 pub const DEFAULT_ANGST_RADIUS: f64 = 100.0;
 pub const DEFAULT_ALIGN_FACTOR: f64 = 1.0 / 8.0;
-pub const DEFAULT_CENTER_FACTOR: f64 = 1.0 / 50.0;
+pub const DEFAULT_COHESION_FACTOR: f64 = 1.0 / 100.0;
 pub const DEFAULT_SEPERATION_FACTOR: f64 = 1.0;
 pub const DEFAULT_ANGST_FACTOR: f64 = 2000.0;
-pub const RETURN_STEER_VAL: f64 = 5.0;
+pub const RETURN_STEER_VAL: f64 = 10.0;
+pub const WALL_SIZE: f64 = 100.0;
+pub const BUCKET_SIZE: usize = 50;
 
 pub struct Boids {
     pub boids: Vec<Boid>,
@@ -49,7 +52,7 @@ impl Boids {
         let max_speed = DEFAULT_MAX_SPEED;
         let max_steer = DEFAULT_MAX_STEER;
         let align_factor = DEFAULT_ALIGN_FACTOR;
-        let center_factor = DEFAULT_CENTER_FACTOR;
+        let center_factor = DEFAULT_COHESION_FACTOR;
         let seperation_factor = DEFAULT_SEPERATION_FACTOR;
         let angst_factor = DEFAULT_ANGST_FACTOR;
         Boids {
@@ -74,138 +77,107 @@ impl Boids {
             *boid = Boid::new(self.size.0, self.size.1)
         }
     }
-}
+    /// Get an iterator of relevant neighbours and their distance to the current boid.
+    /// A boid is not relevant if the distance to it is larger than the largest
+    /// distance considered.
+    pub fn get_weighted_others(&self, curr_idx: usize) -> impl Iterator<Item = (&Boid, f64)> {
+        let max_radius_squared = self
+            .align_radius_squared
+            .max(self.cohesion_radius_squared)
+            .max(self.seperation_radius_squared);
+        let max_bucket_dist = 1 + max_radius_squared as usize / BUCKET_SIZE;
+        // The current element and it's position
+        let this = &self.boids[curr_idx];
+        let this_pos = Point2::new(this.pos.x, this.pos.y);
+        // Filter the rest and map add the distance to them
+        self.boids
+            .iter()
+            .enumerate()
+            .filter(move |(idx, _)| *idx != curr_idx)
+            .filter(move |(_, boid)| {
+                let diff = bucket_diff(&this.id, &boid.id);
+                diff.0 < max_bucket_dist || diff.1 < max_bucket_dist
+            })
+            .filter_map(move |(_, other)| {
+                let pos = Point2::new(other.pos.x, other.pos.y);
+                let dist_squared = na::distance_squared(&this_pos, &pos);
+                if dist_squared < max_radius_squared {
+                    Some((other, dist_squared))
+                } else {
+                    None
+                }
+            })
+    }
 
-pub struct Boid {
-    pub pos: Vector2<f64>,
-    pub vel: Vector2<f64>,
-}
+    pub fn get_return_steer(&self, curr_idx: usize) -> Vector2<f64> {
+        let size = self.size;
+        let curr = &self.boids[curr_idx];
+        let mut steer: Vector2<_> = na::zero();
+        if curr.pos.x < 0.0 + WALL_SIZE {
+            steer.x += RETURN_STEER_VAL;
+        } else if curr.pos.x > size.0 - WALL_SIZE {
+            steer.x -= RETURN_STEER_VAL;
+        }
+        if curr.pos.y < 0.0 + WALL_SIZE {
+            steer.y += RETURN_STEER_VAL;
+        } else if curr.pos.y > size.1 - WALL_SIZE {
+            steer.y -= RETURN_STEER_VAL;
+        }
+        steer
+    }
 
-impl Boid {
-    pub fn new(width: f64, height: f64) -> Self {
-        let mut rng = thread_rng();
-        // Use polar coordinates for the velocity generation
-        let phi = rng.gen_range(0.0..(2.0 * f64::consts::PI));
-        let vel = Vector2::new(phi.cos(), phi.sin());
-        Boid {
-            pos: Vector2::new(rng.gen_range(0.0..width), rng.gen_range(0.0..height)),
-            vel: vel * DEFAULT_MAX_SPEED / 2.0,
+    pub fn get_angst_steer(&self, curr_idx: usize) -> Vector2<f64> {
+        let this_pos = Point2::origin() + self.boids[curr_idx].pos;
+        let pred_pos = Point2::origin() + self.predator;
+        let dist_sq = na::distance_squared(&this_pos, &pred_pos);
+        if dist_sq > self.angst_radius_squared {
+            na::zero()
+        } else if (dist_sq).abs() > f64::EPSILON {
+            (self.boids[curr_idx].pos - self.predator) / dist_sq
+        } else {
+            self.boids[curr_idx].pos - self.predator
         }
     }
 
-    pub fn update(curr_idx: usize, boids: &mut Boids, secs: f64) {
-        let relevant: Vec<_> = get_weighted_others(curr_idx, boids).collect();
-        let align_steer = get_align_steer(&relevant, boids);
-        let cohesion_steer = get_cohesion_steer(&relevant, curr_idx, boids);
-        let seperation_steer = get_seperation_steer(&relevant, curr_idx, boids);
-        let angst_steer = get_angst_steer(curr_idx, boids);
-        let return_steer = get_return_steer(curr_idx, boids);
-        // Accumulate steer
-        let mut steer: Vector2<f64> = na::zero();
-        steer += boids.align_factor * align_steer;
-        steer += boids.cohesion_factor * cohesion_steer;
-        steer += boids.seperation_factor * seperation_steer;
-        steer += boids.angst_factor * angst_steer;
-        // Limit the steer (acceleration)
-        steer = steer.cap_magnitude(boids.max_steer);
-        // Add return steer to force them back into the center
-        steer += return_steer;
-        // Limit the steer (acceleration)
-        steer = steer.cap_magnitude(boids.max_steer);
-        // Apply steer and limit the velocity
-        let vel = &mut boids.boids[curr_idx].vel;
-        *vel += steer;
-        *vel = vel.cap_magnitude(boids.max_speed);
-        // Apply velocity
-        let this = &mut boids.boids[curr_idx];
-        this.pos += this.vel * secs;
+    pub fn get_cohesion_steer(&self, relevant: &[(&Boid, f64)], curr_idx: usize) -> Vector2<f64> {
+        let (sum, count): (Vector2<f64>, usize) = relevant
+            .iter()
+            .filter(|(_, dist)| *dist <= self.cohesion_radius_squared)
+            .map(|(boid, _)| boid.pos)
+            .fold((na::zero(), 0), |(sum, count), pos| (sum + pos, count + 1));
+        if count != 0 {
+            let target = sum / count as f64;
+            target - self.boids[curr_idx].pos
+        } else {
+            na::zero()
+        }
+    }
+
+    pub fn get_seperation_steer(&self, relevant: &[(&Boid, f64)], curr_idx: usize) -> Vector2<f64> {
+        relevant
+            .iter()
+            .filter(|(_, dist)| *dist <= self.seperation_radius_squared)
+            .map(|(boid, _)| boid.pos - self.boids[curr_idx].pos)
+            .fold(na::zero(), |sum: Vector2<f64>, el| sum - el)
+    }
+
+    pub fn get_align_steer(&self, relevant: &[(&Boid, f64)]) -> Vector2<f64> {
+        // We're not our friend, no filtering necessary
+        let (sum, count) = relevant
+            .iter()
+            .filter(|(_, dist)| *dist <= self.align_radius_squared)
+            .map(|(boid, _)| boid.vel)
+            .fold((na::zero(), 0), |(sum, count), vel| (sum + vel, count + 1));
+        if count != 0 {
+            sum / count as f64
+        } else {
+            sum
+        }
     }
 }
 
-/// Get an iterator of relevant neighbours and their distance to the current boid.
-/// A boid is not relevant if the distance to it is larger than the largest
-/// distance considered.
-fn get_weighted_others<'a>(
-    curr_idx: usize,
-    boids: &'a Boids,
-) -> impl Iterator<Item = (&'a Boid, f64)> + 'a {
-    let max_radius_squared = boids.align_radius_squared.max(boids.cohesion_radius_squared).max(boids.seperation_radius_squared);
-    // The current element and it's position
-    let this = &boids.boids[curr_idx];
-    let this_pos = Point2::new(this.pos.x, this.pos.y);
-    // Filter the rest and map add the distance to them
-    boids
-        .boids
-        .iter()
-        .enumerate()
-        .filter(move |(idx, _)| *idx != curr_idx)
-        .filter_map(move |(_, other)| {
-            let pos = Point2::new(other.pos.x, other.pos.y);
-            let dist_squared = na::distance_squared(&this_pos, &pos);
-            if dist_squared < max_radius_squared {
-                Some((other, dist_squared))
-            } else {
-                None
-            }
-        })
-}
-
-fn get_return_steer(curr_idx: usize, boids: &Boids) -> Vector2<f64> {
-    let size = boids.size;
-    let curr = &boids.boids[curr_idx];
-    let mut steer: Vector2<_> = na::zero();
-    let wall = 100.0;
-    if curr.pos.x < 0.0 + wall {
-        steer.x += RETURN_STEER_VAL;
-    } else if curr.pos.x > size.0 - wall {
-        steer.x -= RETURN_STEER_VAL;
-    }
-    if curr.pos.y < 0.0 + wall {
-        steer.y += RETURN_STEER_VAL;
-    } else if curr.pos.y > size.1 - wall {
-        steer.y -= RETURN_STEER_VAL;
-    }
-    steer
-}
-
-fn get_angst_steer(curr_idx: usize, boids: &Boids) -> Vector2<f64> {
-    let this_pos = Point2::origin() + boids.boids[curr_idx].pos;
-    let pred_pos = Point2::origin() + boids.predator;
-    let dist_sq = na::distance_squared(&this_pos, &pred_pos);
-    if dist_sq > boids.angst_radius_squared {
-        na::zero()
-    } else if (dist_sq).abs() > f64::EPSILON {
-        (boids.boids[curr_idx].pos - boids.predator) / dist_sq
-    } else {
-        boids.boids[curr_idx].pos - boids.predator
-    }
-}
-
-fn get_cohesion_steer(relevant: &Vec<(&Boid, f64)>, curr_idx: usize, boids: &Boids) -> Vector2<f64> {
-    let (sum, count): (Vector2<f64>, usize) = relevant.iter()
-        .filter(|(_, dist)| *dist <= boids.cohesion_radius_squared)
-        .map(|(boid, _)| boid.pos)
-        .fold((na::zero(), 0), |(sum, count), pos| (sum + &pos, count + 1));
-    let target_pos = if count != 0 { sum / count as f64 } else { sum };
-    target_pos - boids.boids[curr_idx].pos
-}
-
-fn get_seperation_steer(relevant: &Vec<(&Boid, f64)>, curr_idx: usize, boids: &Boids) -> Vector2<f64> {
-    relevant.iter()
-        .filter(|(_, dist)| *dist <= boids.seperation_radius_squared)
-        .map(|(boid, _)| boid.pos - boids.boids[curr_idx].pos)
-        .fold(na::zero(), |sum: Vector2<f64>, el| sum - el)
-}
-
-fn get_align_steer(relevant: &Vec<(&Boid, f64)>, boids: &Boids) -> Vector2<f64> {
-    // We're not our friend, no filtering necessary
-    let (sum, count) = relevant.iter()
-        .filter(|(_, dist)| *dist <= boids.align_radius_squared)
-        .map(|(boid, _)| boid.vel)
-        .fold((na::zero(), 0), |(sum, count), vel| (sum + vel, count + 1));
-    if count != 0 {
-        sum / count as f64
-    } else {
-        sum
-    }
+fn bucket_diff(this: &(usize, usize), other: &(usize, usize)) -> (usize, usize) {
+    let x = this.0.max(other.0) - this.0.min(other.0);
+    let y = this.1.max(other.1) - this.1.min(other.1);
+    (x, y)
 }
