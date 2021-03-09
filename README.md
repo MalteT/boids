@@ -17,7 +17,7 @@ $ wasm-pack build --target web --out-name wasm --out-dir ./docs/wasm/
 
 Serve everything using:
 ```console
-$ miniserve static
+$ miniserve docs
 ```
 
 You should find the Boids at [localhost:8080/index.html](localhost:8080/index.html) now.
