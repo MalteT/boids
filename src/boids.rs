@@ -5,7 +5,7 @@ use std::f64;
 
 use crate::boid::Boid;
 
-pub const DEFAULT_NR_OF_BOIDS: usize = 1;
+pub const DEFAULT_NR_OF_BOIDS: usize = 100;
 pub const DEFAULT_MAX_SPEED: f64 = 300.0;
 pub const DEFAULT_MAX_STEER: f64 = 30.0;
 pub const DEFAULT_ALIGN_RADIUS: f64 = 50.0;
