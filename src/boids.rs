@@ -176,7 +176,60 @@ impl Boids {
     }
 
     pub fn to_url_suffix(&self) -> String {
-        format!("?align-radius={}&cohesion-radius={}&seperation-radius={}&angst-radius={}&nr-of-boids={}&max-speed={}&max-steer={}&align-factor={}&cohesion-factor={}& seperation-factor={}&angst-factor={}", self.align_radius_squared.sqrt(), self.cohesion_radius_squared.sqrt(), self.seperation_radius_squared.sqrt(), self.angst_radius_squared.sqrt(), self.boids.len(), self.max_speed, self.max_steer, self.align_factor, self.cohesion_factor, self.seperation_factor, self.angst_factor)
+        let mut values = vec![
+            maybe(
+                "align-radius",
+                self.align_radius_squared.sqrt(),
+                DEFAULT_ALIGN_RADIUS,
+            ),
+            maybe(
+                "cohesion-radius",
+                self.cohesion_radius_squared.sqrt(),
+                DEFAULT_COHESION_RADIUS,
+            ),
+            maybe(
+                "seperation-radius",
+                self.seperation_radius_squared.sqrt(),
+                DEFAULT_SEPERATION_RADIUS,
+            ),
+            maybe(
+                "angst-radius",
+                self.angst_radius_squared.sqrt(),
+                DEFAULT_ANGST_RADIUS,
+            ),
+            maybe(
+                "nr-of-boids",
+                self.boids.len() as f64,
+                DEFAULT_NR_OF_BOIDS as f64,
+            ),
+            maybe("max-speed", self.max_speed, DEFAULT_MAX_SPEED),
+            maybe("max-steer", self.max_steer, DEFAULT_MAX_STEER),
+            maybe("align-factor", self.align_factor, DEFAULT_ALIGN_FACTOR),
+            maybe(
+                "cohesion-factor",
+                self.cohesion_factor,
+                DEFAULT_COHESION_FACTOR,
+            ),
+            maybe(
+                "seperation-factor",
+                self.seperation_factor,
+                DEFAULT_SEPERATION_FACTOR,
+            ),
+            maybe("angst-factor", self.angst_factor, DEFAULT_ANGST_FACTOR),
+        ];
+        values
+            .drain(..)
+            .filter_map(|option| option)
+            .map(|(name, val)| format!("{}={}", name, val))
+            .fold(String::from("?"), |concat, elem| concat + &elem + "&")
+    }
+}
+
+fn maybe(name: &str, val: f64, default: f64) -> Option<(&str, f64)> {
+    if val != default {
+        Some((name, val))
+    } else {
+        None
     }
 }
 
