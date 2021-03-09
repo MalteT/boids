@@ -19,4 +19,4 @@ Serve everything using:
 $ miniserve static
 ```
 
-You should find the Boids at [localhost:8080](localhost:8080) now.
+You should find the Boids at [localhost:8080/index.html](localhost:8080/index.html) now.
