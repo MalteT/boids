@@ -174,6 +174,10 @@ impl Boids {
             sum
         }
     }
+
+    pub fn to_url_suffix(&self) -> String {
+        format!("?align-radius={}&cohesion-radius={}&seperation-radius={}&angst-radius={}&nr-of-boids={}&max-speed={}&max-steer={}&align-factor={}&cohesion-factor={}& seperation-factor={}&angst-factor={}", self.align_radius_squared.sqrt(), self.cohesion_radius_squared.sqrt(), self.seperation_radius_squared.sqrt(), self.angst_radius_squared.sqrt(), self.boids.len(), self.max_speed, self.max_steer, self.align_factor, self.cohesion_factor, self.seperation_factor, self.angst_factor)
+    }
 }
 
 fn bucket_diff(this: &(usize, usize), other: &(usize, usize)) -> (usize, usize) {

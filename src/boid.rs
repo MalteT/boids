@@ -54,6 +54,9 @@ impl Boid {
         // Apply velocity
         let this = &mut boids.boids[curr_idx];
         this.pos += this.vel * secs;
-        this.id = (this.pos.x as usize / BUCKET_SIZE, this.pos.y as usize / BUCKET_SIZE);
+        this.id = (
+            this.pos.x as usize / BUCKET_SIZE,
+            this.pos.y as usize / BUCKET_SIZE,
+        );
     }
 }

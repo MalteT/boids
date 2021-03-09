@@ -1,12 +1,12 @@
 #![recursion_limit = "1024"]
 
-use log::{error, info};
+use log::{error, info, warn};
 use wasm_bindgen::{prelude::*, JsCast};
 use yew::{
     prelude::*,
     services::interval::{IntervalService, IntervalTask},
-    utils::document,
-    web_sys::{CanvasRenderingContext2d, HtmlImageElement, MouseEvent, Performance},
+    utils::{document, window},
+    web_sys::{CanvasRenderingContext2d, HtmlImageElement, MouseEvent, Performance, Url},
 };
 
 use std::{f64, time::Duration};
@@ -36,6 +36,7 @@ pub struct Model {
     _task: Box<IntervalTask>,
 }
 
+#[derive(Debug, Clone)]
 pub enum Msg {
     Tick,
     TogglePanel,
@@ -66,8 +67,11 @@ impl Component for Model {
         let (width, height) = get_window_size();
         let settings_panel_shown = false;
         let display_as_qr = false;
+        let mut boids = Boids::new(width, height);
+        update_boids_from_url(&mut boids);
+        update_url(&boids.to_url_suffix());
         Self {
-            boids: Boids::new(width, height),
+            boids,
             last_update: performance().now(),
             last_time_passed: 0.0,
             link,
@@ -78,7 +82,7 @@ impl Component for Model {
     }
 
     fn update(&mut self, msg: Self::Message) -> ShouldRender {
-        match msg {
+        match &msg {
             Msg::Tick => {
                 let now = performance().now();
                 self.last_time_passed = now - self.last_update;
@@ -103,25 +107,35 @@ impl Component for Model {
                 self.boids.seperation_radius_squared = radius.powf(2.0)
             }
             Msg::ChangeAngstRadius(radius) => self.boids.angst_radius_squared = radius.powf(2.0),
-            Msg::ChangeMaxSpeed(max_speed) => self.boids.max_speed = max_speed,
-            Msg::ChangeMaxSteer(max_steer) => self.boids.max_steer = max_steer,
-            Msg::ChangeAlignFactor(factor) => self.boids.align_factor = factor,
-            Msg::ChangeCohesionFactor(factor) => self.boids.cohesion_factor = factor,
-            Msg::ChangeSeperationFactor(factor) => self.boids.seperation_factor = factor,
-            Msg::ChangeAngstFactor(factor) => self.boids.angst_factor = factor,
-            Msg::ChangeNrOfBoids(number) => {
-                while number > self.boids.boids.len() {
-                    self.boids
-                        .boids
-                        .push(Boid::new(self.boids.size.0, self.boids.size.1));
-                }
-                while number < self.boids.boids.len() {
-                    self.boids.boids.pop();
-                }
-            }
+            Msg::ChangeMaxSpeed(max_speed) => self.boids.max_speed = *max_speed,
+            Msg::ChangeMaxSteer(max_steer) => self.boids.max_steer = *max_steer,
+            Msg::ChangeAlignFactor(factor) => self.boids.align_factor = *factor,
+            Msg::ChangeCohesionFactor(factor) => self.boids.cohesion_factor = *factor,
+            Msg::ChangeSeperationFactor(factor) => self.boids.seperation_factor = *factor,
+            Msg::ChangeAngstFactor(factor) => self.boids.angst_factor = *factor,
+            Msg::ChangeNrOfBoids(number) => change_number_of_boids(&mut self.boids, *number),
             Msg::ToggleDebugMode => self.boids.debug_mode = !self.boids.debug_mode,
             Msg::ScatterBoids => self.boids.scatter(),
             Msg::ToggleQrDisplay => self.display_as_qr = !self.display_as_qr,
+        }
+        match msg {
+            Msg::Tick
+            | Msg::TogglePanel
+            | Msg::ToggleDebugMode
+            | Msg::ToggleQrDisplay
+            | Msg::MouseMoved(_)
+            | Msg::ScatterBoids => {}
+            Msg::ChangeAlignRadius(_)
+            | Msg::ChangeCohesionRadius(_)
+            | Msg::ChangeSeperationRadius(_)
+            | Msg::ChangeAngstRadius(_)
+            | Msg::ChangeNrOfBoids(_)
+            | Msg::ChangeMaxSpeed(_)
+            | Msg::ChangeMaxSteer(_)
+            | Msg::ChangeAlignFactor(_)
+            | Msg::ChangeCohesionFactor(_)
+            | Msg::ChangeSeperationFactor(_)
+            | Msg::ChangeAngstFactor(_) => update_url(&self.boids.to_url_suffix()),
         }
         true
     }
@@ -363,6 +377,51 @@ pub fn run_app() {
     App::<Model>::new().mount_to_body();
 }
 
+fn update_boids_from_url(boids: &mut Boids) {
+    let raw_url = document().url().expect("Failed to get URL");
+    let url = Url::new(&raw_url).expect("Failed to create url from string");
+    let params = url.search_params();
+    macro_rules! parse {
+        ($key:literal, $callback:expr) => {
+            if let Some(val) = params.get($key) {
+                if let Ok(val) = val.parse() {
+                    $callback(val)
+                } else {
+                    warn!("Invalid value for key {} in url", stringify!($key));
+                }
+            }
+        };
+    }
+    parse!("nr-of-boids", |number: usize| change_number_of_boids(
+        boids, number
+    ));
+    parse!("align-radius", |radius: f64| boids.align_radius_squared =
+        radius.powf(2.0));
+    parse!("cohesion-radius", |radius: f64| boids
+        .cohesion_radius_squared =
+        radius.powf(2.0));
+    parse!("seperation-radius", |radius: f64| boids
+        .seperation_radius_squared =
+        radius.powf(2.0));
+    parse!("angst-radius", |radius: f64| boids.angst_radius_squared =
+        radius.powf(2.0));
+    parse!("max-speed", |speed: f64| boids.max_speed = speed);
+    parse!("max-steer", |steer: f64| boids.max_steer = steer);
+    parse!("align-factor", |fac: f64| boids.align_factor = fac);
+    parse!("cohesion-factor", |fac: f64| boids.cohesion_factor = fac);
+    parse!("seperation-factor", |fac: f64| boids.seperation_factor =
+        fac);
+    parse!("angst-factor", |fac: f64| boids.angst_factor = fac);
+}
+
+fn update_url(url_suffix: &str) {
+    window()
+        .history()
+        .expect("History not found")
+        .replace_state_with_url(&JsValue::NULL, "", Some(url_suffix))
+        .expect("Replacing state failed");
+}
+
 fn performance() -> Performance {
     web_sys::window()
         .expect("Could not get window object")
@@ -375,6 +434,15 @@ fn update(boids: &mut Boids, time_passed: f64) {
     // Iterate over all boid indices
     for idx in 0..boids.boids.len() {
         Boid::update(idx, boids, secs);
+    }
+}
+
+fn change_number_of_boids(boids: &mut Boids, number: usize) {
+    while number > boids.boids.len() {
+        boids.boids.push(Boid::new(boids.size.0, boids.size.1));
+    }
+    while number < boids.boids.len() {
+        boids.boids.pop();
     }
 }
 

@@ -135,7 +135,7 @@ fn draw_statistics(ctx: &Ctx, model: &Model) {
     ctx.set_fill_style(&JsValue::from_str(STATISTICS_COLOR));
     let fps = 1000.0 / model.last_time_passed;
     let text = format!("{:.2}", fps);
-    ctx.fill_text(&text, 10.0, model.boids.size.1 - 30.0).expect("Failed to draw fps");
+    ctx.fill_text(&text, 10.0, model.boids.size.1 - 30.0)
+        .expect("Failed to draw fps");
     ctx.stroke();
-
 }
