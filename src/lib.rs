@@ -20,6 +20,8 @@ const BOID_RADIUS: f64 = 5.0;
 const QR_CODE_ID: &str = "qrcode";
 const QR_CODE_SIZE: f64 = 30.0;
 const QR_CODE_LOCATION: &str = "qrcode.png";
+const BOID_COLOR: &str = "white";
+const BG_COLOR: &str = "black";
 
 struct Model {
     boids: Boids,
@@ -318,11 +320,11 @@ impl Model {
         canvas.set_width(boids.size.0 as u32);
         canvas.set_height(boids.size.1 as u32);
 
-        context.set_fill_style(&JsValue::from_str("white"));
+        context.set_fill_style(&JsValue::from_str(BG_COLOR));
         context.fill_rect(0.0, 0.0, canvas.width() as f64, canvas.height() as f64);
 
         context.begin_path();
-        context.set_fill_style(&JsValue::from_str("#137ca5"));
+        context.set_fill_style(&JsValue::from_str(BOID_COLOR));
         for boid in &boids.boids {
             let (xx, yy) = (boid.pos.x, boid.pos.y);
             if self.display_as_qr {
