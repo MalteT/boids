@@ -15,7 +15,7 @@ const SEPERATION_RADIUS_COLOR: &str = "blue";
 const VELOCITY_COLOR: &str = "white";
 const PREDATOR_RADIUS_COLOR: &str = "red";
 const BORDER_COLOR: &str = "green";
-const BUCKET_GRID_COLOR: &str = "#333333";
+const BUCKET_GRID_COLOR: &str = "#4c566a33";
 const STATISTICS_COLOR: &str = "#666666";
 
 type Ctx = CanvasRenderingContext2d;

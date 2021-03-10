@@ -19,12 +19,10 @@ use boid::Boid;
 use boids::Boids;
 
 const CANVAS_ID: &str = "canvas";
-const BOID_RADIUS: f64 = 5.0;
 const QR_CODE_ID: &str = "qrcode";
-const QR_CODE_SIZE: f64 = 30.0;
 const QR_CODE_LOCATION: &str = "qrcode.png";
-const BOID_COLOR: &str = "white";
-const BG_COLOR: &str = "black";
+const BOID_COLOR: &str = "#bf616a";
+const BG_COLOR: &str = "#d8dee9";
 
 pub struct Model {
     boids: Boids,
@@ -32,7 +30,7 @@ pub struct Model {
     last_time_passed: f64,
     link: ComponentLink<Self>,
     settings_panel_shown: bool,
-    display_as_qr: bool,
+    special_mode: bool,
     _task: Box<IntervalTask>,
 }
 
@@ -41,7 +39,7 @@ pub enum Msg {
     Tick,
     TogglePanel,
     ToggleDebugMode,
-    ToggleQrDisplay,
+    ToggleSpecialMode,
     ChangeAlignRadius(f64),
     ChangeCohesionRadius(f64),
     ChangeSeperationRadius(f64),
@@ -66,7 +64,7 @@ impl Component for Model {
         let handle = IntervalService::spawn(Duration::from_millis(10), callback);
         let (width, height) = get_window_size();
         let settings_panel_shown = false;
-        let display_as_qr = false;
+        let special_mode = false;
         let mut boids = Boids::new(width, height);
         update_boids_from_url(&mut boids);
         update_url(&boids.to_url_suffix());
@@ -76,7 +74,7 @@ impl Component for Model {
             last_time_passed: 0.0,
             link,
             settings_panel_shown,
-            display_as_qr,
+            special_mode,
             _task: Box::new(handle),
         }
     }
@@ -116,13 +114,13 @@ impl Component for Model {
             Msg::ChangeNrOfBoids(number) => change_number_of_boids(&mut self.boids, *number),
             Msg::ToggleDebugMode => self.boids.debug_mode = !self.boids.debug_mode,
             Msg::ScatterBoids => self.boids.scatter(),
-            Msg::ToggleQrDisplay => self.display_as_qr = !self.display_as_qr,
+            Msg::ToggleSpecialMode => self.special_mode = !self.special_mode,
         }
         match msg {
             Msg::Tick
             | Msg::TogglePanel
             | Msg::ToggleDebugMode
-            | Msg::ToggleQrDisplay
+            | Msg::ToggleSpecialMode
             | Msg::MouseMoved(_)
             | Msg::ScatterBoids => {}
             Msg::ChangeAlignRadius(_)
@@ -304,9 +302,9 @@ impl Model {
                         </button>
                     </div>
                     <div>
-                        <button id="toggle-qr"
-                                onclick={click!(ToggleQrDisplay)}>
-                            { "Toggle QR" }
+                        <button id="toggle-special-mode"
+                                onclick={click!(ToggleSpecialMode)}>
+                            { "Special Mode" }
                         </button>
                     </div>
                     <div>
@@ -328,7 +326,7 @@ impl Model {
             .dyn_into::<web_sys::HtmlCanvasElement>()
             .map_err(|_| ())
             .unwrap();
-        let context = canvas
+        let ctx = canvas
             .get_context("2d")
             .unwrap()
             .unwrap()
@@ -338,35 +336,23 @@ impl Model {
         // Adjust the size
         canvas.set_width(boids.size.0 as u32);
         canvas.set_height(boids.size.1 as u32);
-
-        context.set_fill_style(&JsValue::from_str(BG_COLOR));
-        context.fill_rect(0.0, 0.0, canvas.width() as f64, canvas.height() as f64);
-
-        context.begin_path();
-        context.set_fill_style(&JsValue::from_str(BOID_COLOR));
-        for boid in &boids.boids {
-            let (xx, yy) = (boid.pos.x, boid.pos.y);
-            if self.display_as_qr {
-                context
-                    .draw_image_with_html_image_element_and_dw_and_dh(
-                        &qrcode,
-                        xx - QR_CODE_SIZE / 2.0,
-                        yy - QR_CODE_SIZE / 2.0,
-                        QR_CODE_SIZE,
-                        QR_CODE_SIZE,
-                    )
-                    .unwrap();
-            } else {
-                context.move_to(xx + BOID_RADIUS, yy);
-                context
-                    .arc(xx, yy, BOID_RADIUS, 0.0, 2.0 * f64::consts::PI)
-                    .expect("Failed to draw boid");
-            }
+        // Draw the background
+        if self.special_mode {
+            ctx.set_fill_style(&JsValue::from_str("black"));
+        } else {
+            ctx.set_fill_style(&JsValue::from_str(BG_COLOR));
         }
-        context.fill();
-
+        ctx.fill_rect(0.0, 0.0, canvas.width() as f64, canvas.height() as f64);
+        // Draw all the boids
+        ctx.begin_path();
+        ctx.set_fill_style(&JsValue::from_str(BOID_COLOR));
+        for boid in &boids.boids {
+            boid.render(self, &ctx, &qrcode);
+        }
+        ctx.fill();
+        // Draw debug info if necessary
         if boids.debug_mode {
-            debug::render_debug_info(&context, self);
+            debug::render_debug_info(&ctx, self);
         }
     }
 }

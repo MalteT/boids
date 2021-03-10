@@ -219,14 +219,14 @@ impl Boids {
         ];
         values
             .drain(..)
-            .filter_map(|option| option)
+            .flatten()
             .map(|(name, val)| format!("{}={}", name, val))
             .fold(String::from("?"), |concat, elem| concat + &elem + "&")
     }
 }
 
 fn maybe(name: &str, val: f64, default: f64) -> Option<(&str, f64)> {
-    if val != default {
+    if (val - default).abs() > f64::EPSILON {
         Some((name, val))
     } else {
         None

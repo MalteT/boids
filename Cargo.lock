@@ -45,6 +45,7 @@ version = "0.1.0"
 dependencies = [
  "getrandom",
  "js-sys",
+ "lazy_static",
  "log",
  "nalgebra",
  "rand",

@@ -21,3 +21,7 @@ $ miniserve docs
 ```
 
 You should find the Boids at [localhost:8080/index.html](localhost:8080/index.html) now.
+
+# Thanks
+
+Thanks to [delapouite](https://delapouite.com/) and [Lorc](https://lorcblog.blogspot.com/) for their images on [game-icons.net](https://game-icons.net/).
