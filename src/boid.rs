@@ -6,12 +6,7 @@ use yew::web_sys::{CanvasRenderingContext2d as Ctx, HtmlImageElement};
 
 use std::f64;
 
-use crate::{
-    boids::{Boids, BUCKET_SIZE, DEFAULT_MAX_SPEED},
-    Model,
-};
-
-const QR_CODE_SIZE: f64 = 30.0;
+use crate::{boids::Boids, Model, BUCKET_SIZE, DEFAULT_MAX_SPEED, QR_CODE_SIZE};
 
 lazy_static! {
     pub static ref Y_AXIS: Unit<Vector2<f64>> = Vector2::y_axis();

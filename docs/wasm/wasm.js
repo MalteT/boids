@@ -230,6 +230,7 @@ function __wbg_adapter_23(arg0, arg1, arg2) {
 }
 
 /**
+* Start here!
 */
 export function run_app() {
     wasm.run_app();
@@ -703,12 +704,12 @@ async function init(input) {
         var ret = wasm.memory;
         return addHeapObject(ret);
     };
-    imports.wbg.__wbindgen_closure_wrapper322 = function(arg0, arg1, arg2) {
-        var ret = makeMutClosure(arg0, arg1, 127, __wbg_adapter_20);
+    imports.wbg.__wbindgen_closure_wrapper325 = function(arg0, arg1, arg2) {
+        var ret = makeMutClosure(arg0, arg1, 129, __wbg_adapter_20);
         return addHeapObject(ret);
     };
-    imports.wbg.__wbindgen_closure_wrapper323 = function(arg0, arg1, arg2) {
-        var ret = makeMutClosure(arg0, arg1, 127, __wbg_adapter_23);
+    imports.wbg.__wbindgen_closure_wrapper326 = function(arg0, arg1, arg2) {
+        var ret = makeMutClosure(arg0, arg1, 129, __wbg_adapter_23);
         return addHeapObject(ret);
     };
 

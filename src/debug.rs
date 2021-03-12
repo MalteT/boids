@@ -4,19 +4,10 @@ use yew::web_sys::CanvasRenderingContext2d;
 use std::f64;
 
 use crate::{
-    boid::Boid,
-    boids::{Boids, BUCKET_SIZE, WALL_SIZE},
-    Model,
+    boid::Boid, boids::Boids, Model, ALIGN_RADIUS_COLOR, BORDER_COLOR, BUCKET_GRID_COLOR,
+    BUCKET_SIZE, COHESION_RADIUS_COLOR, PREDATOR_RADIUS_COLOR, SEPERATION_RADIUS_COLOR,
+    STATISTICS_COLOR, VELOCITY_COLOR, WALL_SIZE,
 };
-
-const ALIGN_RADIUS_COLOR: &str = "red";
-const COHESION_RADIUS_COLOR: &str = "green";
-const SEPERATION_RADIUS_COLOR: &str = "blue";
-const VELOCITY_COLOR: &str = "white";
-const PREDATOR_RADIUS_COLOR: &str = "red";
-const BORDER_COLOR: &str = "green";
-const BUCKET_GRID_COLOR: &str = "#4c566a33";
-const STATISTICS_COLOR: &str = "#666666";
 
 type Ctx = CanvasRenderingContext2d;
 
