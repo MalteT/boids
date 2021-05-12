@@ -5,8 +5,8 @@ use std::f64;
 
 use crate::{
     boid::Boid, boids::Boids, Model, ALIGN_RADIUS_COLOR, BORDER_COLOR, BUCKET_GRID_COLOR,
-    BUCKET_SIZE, COHESION_RADIUS_COLOR, PREDATOR_RADIUS_COLOR, SEPERATION_RADIUS_COLOR,
-    STATISTICS_COLOR, VELOCITY_COLOR, WALL_SIZE,
+    BUCKET_SIZE, COHESION_RADIUS_COLOR, PREDATOR_CLICK_RADIUS_SQUARED, PREDATOR_RADIUS_COLOR,
+    SEPERATION_RADIUS_COLOR, STATISTICS_COLOR, VELOCITY_COLOR, WALL_SIZE,
 };
 
 type Ctx = CanvasRenderingContext2d;
@@ -82,18 +82,32 @@ fn draw_velocity(ctx: &Ctx, first: &Boid) {
 }
 
 fn draw_predator_radius(ctx: &Ctx, boids: &Boids) {
-    ctx.begin_path();
-    ctx.set_stroke_style(&JsValue::from_str(PREDATOR_RADIUS_COLOR));
-    let angst_radius = boids.angst_radius_squared.sqrt();
-    ctx.arc(
-        boids.predator.x,
-        boids.predator.y,
-        angst_radius,
-        0.0,
-        2.0 * f64::consts::PI,
-    )
-    .expect("Failed to draw boid seperation radius");
-    ctx.stroke();
+    for predator in &boids.predators {
+        ctx.begin_path();
+        ctx.set_stroke_style(&JsValue::from_str(PREDATOR_RADIUS_COLOR));
+        let angst_radius = boids.angst_radius_squared.sqrt();
+        ctx.arc(
+            predator.x,
+            predator.y,
+            angst_radius,
+            0.0,
+            2.0 * f64::consts::PI,
+        )
+        .expect("Failed to draw predator radius");
+        ctx.stroke();
+        ctx.begin_path();
+        ctx.set_fill_style(&JsValue::from_str(PREDATOR_RADIUS_COLOR));
+        let click_radius = PREDATOR_CLICK_RADIUS_SQUARED.sqrt();
+        ctx.arc(
+            predator.x,
+            predator.y,
+            click_radius,
+            0.0,
+            2.0 * f64::consts::PI,
+        )
+        .expect("Failed to draw predator");
+        ctx.fill();
+    }
 }
 
 fn draw_border(ctx: &Ctx, boids: &Boids) {

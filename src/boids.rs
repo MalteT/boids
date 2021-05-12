@@ -18,7 +18,7 @@ pub struct Boids {
     pub seperation_radius_squared: f64,
     pub angst_radius_squared: f64,
     pub debug_mode: bool,
-    pub predator: Vector2<f64>,
+    pub predators: Vec<Vector2<f64>>,
     pub max_speed: f64,
     pub max_steer: f64,
     pub align_factor: f64,
@@ -38,7 +38,7 @@ impl Boids {
         let seperation_radius_squared = DEFAULT_SEPERATION_RADIUS.powf(2.0);
         let angst_radius_squared = DEFAULT_ANGST_RADIUS.powf(2.0);
         let debug_mode = false;
-        let predator = Vector2::new(width / 2.0, height / 2.0);
+        let predators = vec![Vector2::new(width / 2.0, height / 2.0)];
         let max_speed = DEFAULT_MAX_SPEED;
         let max_steer = DEFAULT_MAX_STEER;
         let align_factor = DEFAULT_ALIGN_FACTOR;
@@ -52,7 +52,7 @@ impl Boids {
             cohesion_radius_squared,
             seperation_radius_squared,
             angst_radius_squared,
-            predator,
+            predators,
             debug_mode,
             max_speed,
             max_steer,
@@ -118,15 +118,20 @@ impl Boids {
 
     pub fn get_angst_steer(&self, curr_idx: usize) -> Vector2<f64> {
         let this_pos = Point2::origin() + self.boids[curr_idx].pos;
-        let pred_pos = Point2::origin() + self.predator;
-        let dist_sq = na::distance_squared(&this_pos, &pred_pos);
-        if dist_sq > self.angst_radius_squared {
-            na::zero()
-        } else if (dist_sq).abs() > f64::EPSILON {
-            (self.boids[curr_idx].pos - self.predator) / dist_sq
-        } else {
-            self.boids[curr_idx].pos - self.predator
+        let mut steer = na::zero();
+        for predator in &self.predators {
+            let pred_pos = Point2::origin() + predator;
+            let dist_sq = na::distance_squared(&this_pos, &pred_pos);
+            steer += if dist_sq > self.angst_radius_squared {
+                // Too far away
+                na::zero()
+            } else if (dist_sq).abs() > f64::EPSILON {
+                (self.boids[curr_idx].pos - predator) / dist_sq
+            } else {
+                self.boids[curr_idx].pos - predator
+            };
         }
+        steer
     }
 
     pub fn get_cohesion_steer(&self, relevant: &[(&Boid, f64)], curr_idx: usize) -> Vector2<f64> {

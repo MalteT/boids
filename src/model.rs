@@ -1,4 +1,6 @@
 use log::{error, info};
+use na::Point2;
+use nalgebra::{self as na, Vector2};
 use wasm_bindgen::{prelude::*, JsCast};
 use yew::{
     prelude::*,
@@ -10,8 +12,8 @@ use yew::{
 use std::{f64, time::Duration};
 
 use crate::{
-    boids::Boids, debug, utils as util, BG_COLOR, BOID_COLOR, CANVAS_ID, QR_CODE_ID,
-    QR_CODE_LOCATION,
+    boids::Boids, debug, utils as util, BG_COLOR, BOID_COLOR, CANVAS_ID,
+    PREDATOR_CLICK_RADIUS_SQUARED, QR_CODE_ID, QR_CODE_LOCATION,
 };
 
 pub struct Model {
@@ -30,6 +32,7 @@ pub enum Msg {
     TogglePanel,
     ToggleDebugMode,
     ToggleSpecialMode,
+    TogglePredator(MouseEvent),
     ChangeAlignRadius(f64),
     ChangeCohesionRadius(f64),
     ChangeSeperationRadius(f64),
@@ -80,12 +83,33 @@ impl Component for Model {
                 util::update(&mut self.boids, self.last_time_passed);
             }
             Msg::MouseMoved(me) => {
-                self.boids.predator.x = me.client_x() as f64;
-                self.boids.predator.y = me.client_y() as f64;
+                self.boids.predators[0].x = me.client_x() as f64;
+                self.boids.predators[0].y = me.client_y() as f64;
             }
             Msg::TogglePanel => {
                 info!("Toggled panel");
                 self.settings_panel_shown = !self.settings_panel_shown;
+            }
+            Msg::TogglePredator(me) => {
+                let new = Vector2::new(me.client_x() as f64, me.client_y() as f64);
+                let new_pos = Point2::origin() + new;
+                let delete_idx = self
+                    .boids
+                    .predators
+                    .iter()
+                    .enumerate()
+                    .skip(1) // Do not consider the mouse follower
+                    .filter(|(_, pred)| {
+                        let pred_pos = Point2::origin() + *pred;
+                        na::distance_squared(&new_pos, &pred_pos) <= PREDATOR_CLICK_RADIUS_SQUARED
+                    })
+                    .map(|(idx, _)| idx)
+                    .next();
+                if let Some(idx) = delete_idx {
+                    self.boids.predators.remove(idx);
+                } else {
+                    self.boids.predators.push(new);
+                }
             }
             Msg::ChangeAlignRadius(radius) => self.boids.align_radius_squared = radius.powf(2.0),
             Msg::ChangeCohesionRadius(radius) => {
@@ -112,6 +136,7 @@ impl Component for Model {
             | Msg::ToggleDebugMode
             | Msg::ToggleSpecialMode
             | Msg::MouseMoved(_)
+            | Msg::TogglePredator(_)
             | Msg::ScatterBoids => {}
             Msg::ChangeAlignRadius(_)
             | Msg::ChangeCohesionRadius(_)
@@ -138,7 +163,8 @@ impl Component for Model {
     fn view(&self) -> Html {
         html! {
             <>
-                <canvas id=CANVAS_ID onmousemove=self.link.callback(Msg::MouseMoved)>
+                <canvas id=CANVAS_ID onmousemove=self.link.callback(Msg::MouseMoved)
+                                     onclick=self.link.callback(Msg::TogglePredator)>
                 </canvas>
                 <button id="toggle-panel" onclick=self.link.callback(|_| Msg::TogglePanel)>
                 </button>

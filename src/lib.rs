@@ -17,6 +17,8 @@ const QR_CODE_ID: &str = "qrcode";
 const QR_CODE_LOCATION: &str = "qrcode.png";
 const QR_CODE_SIZE: f64 = 30.0;
 
+const PREDATOR_CLICK_RADIUS_SQUARED: f64 = 15.0;
+
 const DEFAULT_NR_OF_BOIDS: usize = 100;
 const DEFAULT_MAX_SPEED: f64 = 300.0;
 const DEFAULT_MAX_STEER: f64 = 30.0;
